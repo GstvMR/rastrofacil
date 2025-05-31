@@ -1,0 +1,144 @@
+enum ViewMode {
+  simple
+  route
+}
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  passwordHash  String
+  credits       Int             @default(0)
+  role          Role            @default(user)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  companies     Company[]
+  creditHistory CreditHistory[]
+}
+
+model Company {
+  id        String           @id @default(uuid())
+  name      String
+  userId    String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  prefix    String?
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  settings  CompanySettings?
+  leads     Lead[]
+
+  @@index([userId], map: "Company_userId_fkey")
+}
+
+model CompanySettings {
+  id        String   @id @default(uuid())
+  slaHours  Int      @default(120)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  companyId String   @unique
+  viewMode          ViewMode   @default(simple)
+  templateName      String   @default("loggi")
+  logo                String    @default("/logolog.png")
+  fontFamily          String    @default("'Inter', sans-serif")
+  themePrimary     String   @default("#0056FF")  // concluídas
+  themeAccent      String   @default("#FF4081")  // em andamento
+  themePending     String   @default("#A1A1AA")  // pendentes
+  themeBackground  String   @default("#f4f8ff")
+  showResumoDetalhado Boolean @default(false)  
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model CreditHistory {
+  id        BigInt   @id @default(autoincrement())
+  userId    String
+  delta     Int
+  reason    String
+  actor     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "CreditHistory_userId_fkey")
+}
+
+model Lead {
+  id                   String             @id @default(uuid())
+  companyId            String
+  company              Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  trackingCode         String             @unique
+  status               LeadStatus
+  createdAt            DateTime           @default(now())
+  originCep            String             @default("01320-000")
+  orderNumber          Int
+  valueTotal           Float
+  valueProducts        Float
+  valueShipment        Float
+  valueDiscount        Float
+  daysDelivery         String
+  estimatedDelivery    DateTime?
+  gateway              String
+  paymentMethod        String
+  billetBarcode        String?
+  gatewayTxId          String?
+  customerFirstName    String
+  customerLastName     String
+  customerDoc          String
+  customerEmail        String
+  customerPhone        String
+  addressStreet        String
+  addressNumber        String
+  addressNeighborhood  String
+  addressReceiver      String
+  addressZipcode       String
+  addressCity          String
+  addressUf            String
+  items                LeadItem[]
+  history              LeadStatusHistory[]
+
+  @@index([companyId], map: "Lead_companyId_fkey")
+}
+
+model LeadItem {
+  id              String   @id @default(uuid())
+  leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  name            String
+  variation       String?
+  sourceReference String?
+  quantity        Int
+  price           Float
+
+  @@index([leadId], map: "LeadItem_leadId_fkey")
+}
+
+model LeadStatusHistory {
+  id        BigInt     @id @default(autoincrement())
+  leadId    String
+  status    LeadStatus
+  createdAt DateTime   @default(now())
+  lead      Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId], map: "LeadStatusHistory_leadId_fkey")
+}
+
+enum LeadStatus {
+  purchase
+  sorting
+  in_transit
+  delivered
+  failed
+  retry
+}
+
+enum Role {
+  user
+  admin
+}
